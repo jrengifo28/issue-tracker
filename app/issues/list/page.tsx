@@ -5,30 +5,40 @@ import NextLink from "next/link";
 import IssueActions from "./IssueActions";
 import { Issue, Status } from "@prisma/client";
 import { ArrowUpIcon } from "@radix-ui/react-icons";
+import { headers } from "next/headers";
+import { parse } from "querystring";
 
-interface Props {
-  searchParams: { status: Status; orderBy: keyof Issue };
-}
-
-const IssuesPage = async ({ searchParams }: Props) => {
-  console.log(searchParams.status);
-
+const IssuesPage = async () => {
   const columns: { label: string; value: keyof Issue; className?: string }[] = [
     { label: "Issue", value: "title" },
     { label: "Status", value: "status", className: "hidden md:table-cell" },
     { label: "Created", value: "createdAt", className: "hidden md:table-cell" },
   ];
 
-  const statuses = Object.values(Status);
-  const status = statuses.includes(searchParams.status)
-    ? searchParams.status
-    : undefined;
+  // Obtener query string desde el header y parsearlo
+  const headerList = headers();
+  const url = (await headerList).get("x-next-url") || "";
+  const queryString = url.split("?")[1] || "";
+  const queryParams = parse(queryString);
 
-  const orderBy = columns
-    .map((column) => column.value)
-    .includes(searchParams.orderBy)
-    ? { [searchParams.orderBy]: "asc" }
-    : undefined;
+  const rawStatus = Array.isArray(queryParams.status)
+    ? queryParams.status[0]
+    : queryParams.status;
+  const rawOrderBy = Array.isArray(queryParams.orderBy)
+    ? queryParams.orderBy[0]
+    : queryParams.orderBy;
+
+  const status =
+    rawStatus && Object.values(Status).includes(rawStatus as Status)
+      ? (rawStatus as Status)
+      : undefined;
+
+  const orderByValue =
+    rawOrderBy && columns.some((col) => col.value === rawOrderBy)
+      ? (rawOrderBy as keyof Issue)
+      : undefined;
+
+  const orderBy = orderByValue ? { [orderByValue]: "asc" as const } : undefined;
 
   const issues = await prisma.issue.findMany({
     where: {
@@ -43,23 +53,25 @@ const IssuesPage = async ({ searchParams }: Props) => {
       <Table.Root variant="surface">
         <Table.Header>
           <Table.Row>
-            {columns.map((column) => (
-              <Table.ColumnHeaderCell
-                key={column.value}
-                className={column.className}
-              >
-                <NextLink
-                  href={{
-                    query: { ...searchParams, orderBy: column.value },
-                  }}
+            {columns.map((column) => {
+              const query: Record<string, string> = {};
+              if (status) query.status = status;
+              query.orderBy = column.value;
+
+              return (
+                <Table.ColumnHeaderCell
+                  key={column.value}
+                  className={column.className}
                 >
-                  {column.label}
-                </NextLink>
-                {column.value === searchParams.orderBy && (
-                  <ArrowUpIcon className="inline" />
-                )}
-              </Table.ColumnHeaderCell>
-            ))}
+                  <NextLink href={{ pathname: "/issues/list", query }}>
+                    {column.label}
+                  </NextLink>
+                  {column.value === orderByValue && (
+                    <ArrowUpIcon className="inline" />
+                  )}
+                </Table.ColumnHeaderCell>
+              );
+            })}
           </Table.Row>
         </Table.Header>
         <Table.Body>
