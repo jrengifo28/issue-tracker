@@ -29,6 +29,7 @@
     "react-loading-skeleton": "^3.5.0",
     "react-markdown": "^10.1.0",
     "react-simplemde-editor": "^5.2.0",
+    "recharts": "^3.1.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
